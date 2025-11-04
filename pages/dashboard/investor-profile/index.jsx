@@ -14,6 +14,7 @@ import {
 import { GetAllInvestors } from "@/service/InvestorProfile";
 import { createClient } from "@/utils/supabase/server";
 import Link from "next/link";
+import InvestorSearchBar from "@/components/investorSearchBar";
 
 export default function InvestorProfile({
   investors,
@@ -21,7 +22,10 @@ export default function InvestorProfile({
   currentPage,
   totalPages,
 }) {
-  console.log({ currentPage, totalPages });
+  console.log({ investors });
+  if (error) {
+    console.log(error.message, error.code);
+  }
   if (!error)
     return (
       <DashboardLayout>
@@ -33,44 +37,41 @@ export default function InvestorProfile({
             </p>
           </div>
 
-          <DashboardStats />
+          {/* <DashboardStats /> */}
+        </div>
+        <div className="max-w-3xl mx-auto mt-10">
+          <InvestorSearchBar />
         </div>
         <div className="flex flex-1 mt-10">
           <Table>
-            <TableCaption>A list of your recent invoices.</TableCaption>
+            {/* <TableCaption>A list of your recent invoices.</TableCaption> */}
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[100px]">Invoice</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Method</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
+                <TableHead>Company</TableHead>
+                <TableHead>Domain</TableHead>
+                <TableHead className="text-right">Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {investors.map((item, index) => (
                 <TableRow key={index} className="">
-                  <TableCell className="font-medium">{index}</TableCell>
                   <TableCell>
                     <Link href={`/dashboard/investor-profile/${item.id}`}>
                       {item.name}
                     </Link>
                   </TableCell>
-                  <TableCell>"Payment Method"</TableCell>
+                  <TableCell>{item.domain ? item.domain : "-"}</TableCell>
                   <TableCell className="text-right">
-                    <button>Edit</button>
+                    <Link href={`/dashboard/investor-profile/edit/${item.id}`}>
+                      Edit
+                    </Link>
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
-            {/* <TableFooter>
-              <TableRow>
-                <TableCell colSpan={3}>Total</TableCell>
-                <TableCell className="text-right">$2,500.00</TableCell>
-              </TableRow>
-            </TableFooter> */}
           </Table>
         </div>
-        <div className="flex justify-center gap-4 mt-4">
+        <div className="flex justify-center items-center gap-4 mt-4">
           {currentPage > 1 && (
             <Link
               href={`?page=${currentPage - 1}`}
@@ -108,7 +109,11 @@ export async function getServerSideProps(context) {
     const supabase = await createClient();
     const { data, error, count } = await supabase
       .from("AllInvestorsView")
-      .select("id, name", { count: "exact" }) // ✅ get total count too
+      .select("*", { count: "exact" })
+      .filter("social_links_count", "gt", 0)
+      // .filter("investment_stage_count", "eq", 0)
+      // .filter("sector_count", "eq", 0)
+      // .filter("name", "eq", "")
       .range(from, to);
 
     if (error) throw error;
@@ -119,13 +124,17 @@ export async function getServerSideProps(context) {
         error: error,
         currentPage: page,
         totalPages: Math.ceil(count / limit),
+        count: count,
       },
     };
   } catch (error) {
     console.log(error);
     return {
       props: {
-        error: error,
+        error: {
+          message: error.message || "Unknown error",
+          code: error.code || null,
+        },
       },
     };
   }

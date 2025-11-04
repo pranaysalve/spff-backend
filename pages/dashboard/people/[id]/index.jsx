@@ -20,8 +20,7 @@ import {
 import Link from "next/link";
 import Image from "next/image";
 
-export default function SingleInvestorProfile({ investor, error }) {
-  console.log({ investor, error });
+export default function SingleMember({ member, error }) {
   if (error) {
     return (
       <DashboardLayout>
@@ -29,7 +28,7 @@ export default function SingleInvestorProfile({ investor, error }) {
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Error</h1>
             <p className="text-muted-foreground">
-              Failed to load investor profile: {error.message}
+              Failed to load team member profile: {error.message}
             </p>
             {error.code && (
               <p className="text-sm text-muted-foreground mt-2">
@@ -42,16 +41,16 @@ export default function SingleInvestorProfile({ investor, error }) {
     );
   }
 
-  if (!investor) {
+  if (!member) {
     return (
       <DashboardLayout>
         <div className="space-y-6">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">
-              Investor Not Found
+              Member not found
             </h1>
             <p className="text-muted-foreground">
-              The requested investor profile could not be found.
+              The requested member profile could not be found.
             </p>
           </div>
         </div>
@@ -66,30 +65,28 @@ export default function SingleInvestorProfile({ investor, error }) {
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="space-y-2">
-              <Image
+              {/* <Image
                 src={investor.logo}
                 height={100}
                 width={100}
                 alt={investor.name}
-              />
+              /> */}
             </div>
             <div className="space-y-2">
               <h1 className="text-3xl font-bold tracking-tight">
-                {investor.name}
+                {member.first_name} {member.last_name}
               </h1>
-              <p className="text-lg text-muted-foreground">
-                {investor.tagline}
-              </p>
+              <p className="text-small">{member.email}</p>
             </div>
-            <div className="flex flex-col sm:flex-row gap-2">
-              {investor.domain && (
+            {/* <div className="flex flex-col sm:flex-row gap-2">
+              {member.email && (
                 <Button
                   variant="outline"
                   size="sm"
                   className="w-full sm:w-auto"
                 >
                   <Globe className="w-4 h-4 mr-2" />
-                  Visit Website
+                  {member}
                 </Button>
               )}
               <Button variant="outline" size="sm" className="w-full sm:w-auto">
@@ -106,90 +103,22 @@ export default function SingleInvestorProfile({ investor, error }) {
                   Edit
                 </Button>
               </Link>
-            </div>
+            </div> */}
           </div>
-
-          {/* Description */}
-          {investor.description && (
-            <p className="text-muted-foreground leading-relaxed">
-              {investor.description}
-            </p>
-          )}
         </div>
 
         {/* Key Metrics */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-2">
-                <Building className="h-4 w-4 text-muted-foreground" />
-                <div>
-                  <p className="text-sm font-medium">AUM</p>
-                  <p className="text-2xl font-bold">{investor.aum || "N/A"}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-2">
-                <MapPin className="h-4 w-4 text-muted-foreground" />
-                <p className="text-sm font-medium">Country</p>
-                <div className="flex flex-wrap gap-2">
-                  {investor.countries?.map((country, index) => (
-                    <Badge key={index} variant="outline" className="text-sm">
-                      {country.name}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-2">
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-                <div>
-                  <p className="text-sm font-medium">Founded</p>
-                  <p className="text-2xl font-bold">
-                    {investor.created_at
-                      ? new Date(investor.created_at).getFullYear()
-                      : "N/A"}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-2">
-                <Users className="h-4 w-4 text-muted-foreground" />
-                <div>
-                  <p className="text-sm font-medium">Sectors</p>
-                  <p className="text-2xl font-bold">
-                    {investor.sectors?.length || 0}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
 
         {/* Investment Sectors */}
-        {investor.sectors && investor.sectors.length > 0 && (
+        {member.sectors && member.sectors.length > 0 && (
           <Card>
             <CardHeader>
               <CardTitle>Investment Sectors</CardTitle>
-              <CardDescription>
-                Sectors this investor focuses on
-              </CardDescription>
+              <CardDescription>Sectors this member focuses on</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap gap-2">
-                {investor.sectors.map((sector, index) => (
+                {member.sectors?.map((sector, index) => (
                   <Badge key={index} variant="outline" className="text-sm">
                     {sector.name}
                   </Badge>
@@ -199,61 +128,8 @@ export default function SingleInvestorProfile({ investor, error }) {
           </Card>
         )}
 
-        {/* Investment Stages */}
-        {investor.stages && investor.stages.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Investment Stages</CardTitle>
-              <CardDescription>
-                Funding stages this investor participates in
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-2">
-                {investor.stages.map((stage, index) => (
-                  <Badge key={index} variant="secondary" className="text-sm">
-                    {stage.name}
-                  </Badge>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Team Information */}
-        {investor.teams && investor.teams.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Team</CardTitle>
-              <CardDescription>Key team members</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {investor.teams.map((team, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center space-x-4 p-4 border rounded-lg bg-card hover:shadow-sm transition"
-                  >
-                    <div className="w-10 h-10 bg-muted rounded-full flex items-center justify-center">
-                      <Users className="w-5 h-5" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-medium">
-                        {team.first_name} {team.last_name}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {team.designation}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
         {/* Social Links */}
-        {investor.social_links && (
+        {/* {investor.social_links && (
           <Card>
             <CardHeader>
               <CardTitle>Social Links</CardTitle>
@@ -280,10 +156,10 @@ export default function SingleInvestorProfile({ investor, error }) {
               </div>
             </CardContent>
           </Card>
-        )}
+        )} */}
 
         {/* Additional Information */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card className="border border-blue-500">
             <CardHeader>
               <CardTitle>Contact Information</CardTitle>
@@ -343,7 +219,7 @@ export default function SingleInvestorProfile({ investor, error }) {
               </div>
             </CardContent>
           </Card>
-        </div>
+        </div> */}
       </div>
     </DashboardLayout>
   );
@@ -353,7 +229,7 @@ export async function getServerSideProps(context) {
   try {
     const supabase = await createClient();
     const { data, error } = await supabase
-      .from("investor_detail")
+      .from("team_detail_withemail")
       .select(`*`)
       .eq("id", context.query.id)
       .single();
@@ -362,7 +238,7 @@ export async function getServerSideProps(context) {
       console.error("Supabase error:", error);
       return {
         props: {
-          investor: null,
+          member: null,
           error: {
             message: error.message,
             code: error.code,
@@ -374,7 +250,7 @@ export async function getServerSideProps(context) {
 
     return {
       props: {
-        investor: data,
+        member: data,
         error: null,
       },
     };
@@ -382,7 +258,7 @@ export async function getServerSideProps(context) {
     console.error("Server error:", error);
     return {
       props: {
-        investor: null,
+        member: null,
         error: {
           message: error.message || "An unexpected error occurred",
           code: error.code || "UNKNOWN_ERROR",

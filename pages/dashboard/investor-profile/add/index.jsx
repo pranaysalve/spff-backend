@@ -5,7 +5,6 @@ import { DashboardLayout } from "@/components/dashboard-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { useRouter } from "next/navigation";
 import {
   Form,
   FormField,
@@ -22,37 +21,27 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import ImageUpload from "@/components/ImageUpload"; // adjust path
-import { MultiSelect } from "@/components/MultiSelect"; // adjust path
-import { createClient } from "@/utils/supabase/server";
+import ImageUpload from "@/components/ImageUpload";
+import { MultiSelect } from "@/components/MultiSelect";
 import Image from "next/image";
 import { supabase } from "@/lib/supabaseClient";
-import { isObejectChanges } from "@/lib/utils";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useRouter } from "next/navigation";
 
-export default function EditInvestorPage({
-  investor,
-  stages,
-  sectors,
-  countries,
-  error,
-}) {
+export default function AddInvestorPage({ stages, sectors, countries }) {
   const router = useRouter();
-  console.log({ stages, sectors, countries });
+
   const form = useForm({
     defaultValues: {
-      name: investor?.name || "",
-      logo: investor?.logo || "",
-      tagline: investor?.tagline || "",
-      domain: investor?.domain || "",
-      description: investor?.description || "",
-      aum: investor?.aum || "",
-      sectors: investor?.sectors || [],
-      stages: investor?.stages || [],
-      country: investor?.countries || [],
-      social_links: investor?.social_links?.length
-        ? investor.social_links
-        : [{ platform: "", url: "" }],
+      name: "",
+      logo: "",
+      tagline: "",
+      domain: "",
+      description: "",
+      aum: "",
+      sectors: [],
+      stages: [],
+      country: [],
+      social_links: [{ platform: "", url: "" }],
     },
   });
 
@@ -65,119 +54,91 @@ export default function EditInvestorPage({
     name: "social_links",
   });
 
-  const logoURL = investor.logo ? investor.logo : form.watch("logo");
-  console.log({});
+  const logoURL = form.watch("logo");
+
   const onSubmit = async (values) => {
-    // Compare and collect changed fields
-    console.log({ values });
-    const updateObject = {};
-    if (values.country?.length !== investor.countries?.length) {
-      await supabase
-        .from("investor_countries")
-        .delete()
-        .eq("investor_id", investor.id);
+    console.log("Submitting:", values);
 
-      if (values.country?.length) {
-        const countriesRows = values.country.map((s) => ({
-          investor_id: investor.id,
-          country_id: s.id,
-        }));
-        await supabase.from("investor_countries").insert(countriesRows);
-      }
+    // 1️⃣ Insert investor
+    const { data: newInvestor, error: insertError } = await supabase
+      .from("investors")
+      .insert([
+        {
+          name: values.name,
+          logo: values.logo,
+          tagline: values.tagline,
+          domain: values.domain,
+          description: values.description,
+          aum: values.aum,
+        },
+      ])
+      .select()
+      .single();
+
+    if (insertError) {
+      console.error("Error inserting investor:", insertError);
+      alert("Failed to add investor");
+      return;
     }
-    if (values.social_links?.length !== investor.social_links?.length) {
-      await supabase
-        .from("social_links")
-        .delete()
-        .eq("investor_id", investor.id);
 
-      if (values.social_links?.length) {
-        const social_linkRows = values.social_links.map((s) => ({
-          investor_id: investor.id,
-          platform: s.platform,
-          url: s.url,
-        }));
-        await supabase.from("social_links").insert(social_linkRows);
-      }
-    }
-    if (values.sectors.length !== investor.sectors.length) {
-      await supabase
-        .from("investor_sectors")
-        .delete()
-        .eq("investor_id", investor.id);
+    const investorId = newInvestor.id;
 
+    // 2️⃣ Insert related records (many-to-many)
+    try {
+      // sectors
       if (values.sectors?.length) {
         const sectorRows = values.sectors.map((s) => ({
-          investor_id: investor.id,
+          investor_id: investorId,
           sector_id: s.id,
         }));
         await supabase.from("investor_sectors").insert(sectorRows);
       }
-    }
-    if (values.stages.length !== investor.stages.length) {
-      await supabase
-        .from("investor_stages")
-        .delete()
-        .eq("investor_id", investor.id);
 
+      // stages
       if (values.stages?.length) {
-        const stagesRow = values.stages.map((s) => ({
-          investor_id: investor.id,
+        const stageRows = values.stages.map((s) => ({
+          investor_id: investorId,
           stage_id: s.id,
         }));
-        await supabase.from("investor_stages").insert(stagesRow);
+        await supabase.from("investor_stages").insert(stageRows);
       }
+
+      // countries
+      if (values.country?.length) {
+        const countryRows = values.country.map((c) => ({
+          investor_id: investorId,
+          country_id: c.id,
+        }));
+        await supabase.from("investor_countries").insert(countryRows);
+      }
+
+      // social links
+      if (values.social_links?.length) {
+        const socialRows = values.social_links.map((s) => ({
+          investor_id: investorId,
+          platform: s.platform,
+          url: s.url,
+        }));
+        await supabase.from("social_links").insert(socialRows);
+      }
+
+      alert("Investor added successfully!");
+      router.push("/dashboard/investors");
+    } catch (e) {
+      console.error("Error inserting related data:", e);
+      alert("Investor created but related data failed. Please recheck.");
     }
-
-    if (investor.name !== values.name) updateObject.name = values.name;
-    if (investor.logo !== values.logo) updateObject.logo = values.logo;
-    if (investor.tagline !== values.tagline)
-      updateObject.tagline = values.tagline;
-    if (investor.domain !== values.domain) updateObject.domain = values.domain;
-    if (investor.description !== values.description)
-      updateObject.description = values.description;
-    if (investor.aum !== values.aum) updateObject.aum = values.aum;
-
-    if (Object.keys(updateObject).length > 0) {
-      // If anything changed, update once
-      const { data, error } = await supabase
-        .from("investors")
-        .update(updateObject)
-        .eq("id", investor.id);
-
-      if (error) console.error("Update failed:", error);
-      else console.log("Investor updated successfully");
-      console.log({ data });
-    } else {
-      console.log("No changes detected");
-    }
-    router.push(`/dashboard/investor-profile/${investor.id}`);
   };
-
-  if (!investor) {
-    return (
-      <DashboardLayout>
-        <div className="space-y-6">
-          <h1 className="text-3xl font-bold tracking-tight">
-            Investor Not Found
-          </h1>
-          <p className="text-muted-foreground">
-            The requested investor profile could not be found.
-          </p>
-        </div>
-      </DashboardLayout>
-    );
-  }
 
   return (
     <DashboardLayout>
       <div className="space-y-6 max-w-3xl">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
-            Edit Investor Details
+            Add New Investor
           </h1>
           <p className="text-muted-foreground">
-            Update investor information and save your changes.
+            Fill out the form to create a new investor record.
           </p>
         </div>
 
@@ -186,59 +147,56 @@ export default function EditInvestorPage({
             onSubmit={form.handleSubmit(onSubmit)}
             className="space-y-6 bg-white dark:bg-neutral-900 border rounded-2xl p-6 shadow-sm"
           >
-            {/* Top Row */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2  items-center">
-              {/* Upload logo dialog */}
-              <div>
-                {logoURL && (
-                  <Image
-                    src={logoURL}
-                    width={100}
-                    height={100}
-                    alt={investor.name}
-                  />
-                )}
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button className="rounded-full shadow" variant="outline">
-                      {logoURL ? "Change Logo" : "Upload Logo"}
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-[425px]">
-                    <DialogHeader>
-                      <DialogTitle className="text-center">
-                        Upload your logo
-                      </DialogTitle>
-                      <DialogDescription className="text-center">
-                        Upload an image file to use as your company logo.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                      <ImageUpload
-                        onUploadComplete={(url) => {
-                          form.setValue("logo", url);
-                        }}
-                      />
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              </div>
-
-              {/* Name */}
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Investor name" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            {/* Logo upload */}
+            <div className="flex items-center gap-4">
+              {logoURL && (
+                <Image
+                  src={logoURL}
+                  width={100}
+                  height={100}
+                  alt="Investor logo"
+                  className="rounded"
+                />
+              )}
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button className="rounded-full shadow" variant="outline">
+                    {logoURL ? "Change Logo" : "Upload Logo"}
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[425px]">
+                  <DialogHeader>
+                    <DialogTitle className="text-center">
+                      Upload your logo
+                    </DialogTitle>
+                    <DialogDescription className="text-center">
+                      Upload an image file to use as your company logo.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <ImageUpload
+                      onUploadComplete={(url) => form.setValue("logo", url)}
+                    />
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
+
+            {/* Name */}
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Name</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Investor name" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             {/* Tagline */}
             <FormField
               control={form.control}
@@ -252,6 +210,7 @@ export default function EditInvestorPage({
                 </FormItem>
               )}
             />
+
             {/* Domain */}
             <FormField
               control={form.control}
@@ -265,6 +224,7 @@ export default function EditInvestorPage({
                 </FormItem>
               )}
             />
+
             {/* Description */}
             <FormField
               control={form.control}
@@ -281,6 +241,7 @@ export default function EditInvestorPage({
                 </FormItem>
               )}
             />
+
             {/* AUM */}
             <FormField
               control={form.control}
@@ -294,6 +255,7 @@ export default function EditInvestorPage({
                 </FormItem>
               )}
             />
+
             {/* Sectors */}
             {sectors && (
               <FormField
@@ -309,6 +271,7 @@ export default function EditInvestorPage({
                 )}
               />
             )}
+
             {/* Stages */}
             {stages && (
               <FormField
@@ -324,8 +287,8 @@ export default function EditInvestorPage({
                 )}
               />
             )}
-            {/* Country Info */}
 
+            {/* Countries */}
             {countries && (
               <FormField
                 control={form.control}
@@ -344,7 +307,7 @@ export default function EditInvestorPage({
             {/* Social Links */}
             <div className="space-y-4">
               {socialFields.map((item, index) => (
-                <div key={item.id} className="grid grid-cols-2 gap-2 w-full">
+                <div key={item.id} className="grid grid-cols-2 gap-4">
                   {/* 🌐 Platform Select */}
                   <FormField
                     control={form.control}
@@ -412,7 +375,7 @@ export default function EditInvestorPage({
             </div>
 
             <Button type="submit" className="w-full">
-              Save Changes
+              Create Investor
             </Button>
           </form>
         </Form>
@@ -421,61 +384,24 @@ export default function EditInvestorPage({
   );
 }
 
-// ✅ SSR to fetch data
+export async function getServerSideProps() {
+  const supabase = await import("@/utils/supabase/server").then((m) =>
+    m.createClient()
+  );
 
-export async function getServerSideProps(context) {
-  const supabase = await createClient();
+  const { data: sectors } = await supabase.from("sectors").select("id, name");
+  const { data: stages } = await supabase
+    .from("investment_stages")
+    .select("id, name");
+  const { data: countries } = await supabase
+    .from("countries")
+    .select("id, name, flag");
 
-  try {
-    const { data, error } = await supabase
-      .from("investor_detail")
-      .select(`*`)
-      .eq("id", context.query.id)
-      .single();
-
-    const { data: sectors, error: sectorError } = await supabase
-      .from("sectors")
-      .select("id, name");
-
-    const { data: stages, error: stagesError } = await supabase
-      .from("investment_stages")
-      .select("id, name");
-
-    const { data: countries, error: countriesError } = await supabase
-      .from("countries")
-      .select("id, name, flag");
-
-    if (error) {
-      return {
-        props: {
-          investor: null,
-          error: {
-            message: error.message,
-            code: error.code,
-            details: error.details,
-          },
-        },
-      };
-    }
-
-    return {
-      props: {
-        investor: data,
-        stages,
-        sectors,
-        countries,
-        error: null,
-      },
-    };
-  } catch (error) {
-    return {
-      props: {
-        investor: null,
-        error: {
-          message: error.message || "An unexpected error occurred",
-          code: error.code || "UNKNOWN_ERROR",
-        },
-      },
-    };
-  }
+  return {
+    props: {
+      stages: stages || [],
+      sectors: sectors || [],
+      countries: countries || [],
+    },
+  };
 }
